@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard - Pixel World</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #0f0; padding: 20px; }
+        .card { border: 1px solid #333; background: #222; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        h1 { border-bottom: 1px solid #444; padding-bottom: 10px; }
+        .big-number { font-size: 3em; font-weight: bold; color: white; }
+        .label { color: #888; text-transform: uppercase; font-size: 0.8em; }
+        
+        /* Grille de stats */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        
+        /* Barre de couleur */
+        .color-bar { height: 20px; margin: 5px 0; display: flex; align-items: center; }
+        .color-box { height: 100%; display: inline-block; width: 20px; margin-right: 10px; border: 1px solid #fff; }
+    </style>
+</head>
+<body>
+
+    <h1>📟 SYSTEM MONITOR</h1>
+
+    <div class="grid">
+        <div class="card">
+            <div class="label">Joueurs en ligne</div>
+            <div class="big-number" id="onlineUsers">0</div>
+        </div>
+        <div class="card">
+            <div class="label">Clics (Dernières 60s)</div>
+            <div class="big-number" id="rpm">0</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Pixels</div>
+            <div class="big-number" id="totalPixels">0</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="label">Distribution des Couleurs (Top 5)</div>
+        <div id="colorStats">En attente de données...</div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+
+        // Écouter les mises à jour des stats (toutes les 2s)
+        socket.on('stats_update', (stats) => {
+            document.getElementById('onlineUsers').innerText = stats.users_count;
+            document.getElementById('rpm').innerText = stats.actions_last_60s;
+            document.getElementById('totalPixels').innerText = stats.total_pixels;
+
+            // Affichage des couleurs
+            const colorDiv = document.getElementById('colorStats');
+            colorDiv.innerHTML = '';
+            for (const [color, count] of Object.entries(stats.top_colors)) {
+                colorDiv.innerHTML += `
+                    <div class="color-bar">
+                        <span class="color-box" style="background-color: ${color}"></span>
+                        <span style="width: 50px">${count}</span>
+                        <div style="background: #333; width: 200px; height: 10px;">
+                            <div style="background: ${color}; width: ${(count / stats.total_pixels) * 100}%; height: 100%;"></div>
+                        </div>
+                    </div>`;
+            }
+        });
+    </script>
+</body>
+</html>

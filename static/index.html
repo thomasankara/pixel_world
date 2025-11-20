@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+<<<<<<< HEAD
     <title>Pixel World 10k</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #111; color: white; font-family: sans-serif; }
@@ -10,11 +11,89 @@
             position: absolute; top: 10px; left: 10px; 
             background: rgba(0, 0, 0, 0.8); padding: 15px; border-radius: 8px;
             border: 1px solid #444; user-select: none;
+=======
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel World - Multijoueur</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111; /* Fond hors de la carte */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair; /* Curseur en forme de croix pour la précision */
+        }
+
+        /* L'interface utilisateur flottante */
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85); /* Semi-transparent */
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #444;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            pointer-events: auto; /* Pour pouvoir cliquer sur les boutons */
+            user-select: none; /* Empêche de sélectionner le texte en cliquant partout */
+            min-width: 200px;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            color: #00d2ff;
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+        }
+
+        p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        .controls {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #555;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: none;
+        }
+
+        /* Indicateur de Ping */
+        .ping-indicator {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: gray;
+>>>>>>> 046f9bf (Initialisation du dépôt local et préparation a la synchronisation)
         }
     </style>
 </head>
 <body>
 
+<<<<<<< HEAD
 <div id="ui">
     <h3>Monde Multijoueur</h3>
     <small>Clic Gauche: Dessiner<br>Clic Droit: Bouger la caméra</small><br><br>
@@ -113,5 +192,174 @@
     canvas.addEventListener('contextmenu', e => e.preventDefault()); // Bloque le menu clic droit
 
 </script>
+=======
+    <div id="ui">
+        <h1>Pixel World 🌍</h1>
+        <p>🖱️ <b>Clic Gauche :</b> Poser un pixel</p>
+        <p>🖱️ <b>Clic Droit :</b> Bouger la caméra</p>
+        
+        <div class="controls">
+            <label for="colorPicker">Votre couleur :</label>
+            <input type="color" id="colorPicker" value="#00ff00">
+        </div>
+
+        <div class="ping-indicator">
+            <div id="pingDot" class="status-dot"></div>
+            Latence: <span id="pingDisplay">--</span> ms
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    
+    <script>
+        // --- 1. Initialisation ---
+        const socket = io();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const WORLD_SIZE = 10000; // Taille du monde
+        let circles = [];         // Stockage local des cercles
+        
+        // Caméra
+        let camera = { x: 0, y: 0 };
+        let isDragging = false;
+        let lastMouse = { x: 0, y: 0 };
+
+        // --- 2. Gestion du Canvas et Redimensionnement ---
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- 3. Logique Réseau (Socket.IO) ---
+
+        // Réception de la carte entière à la connexion
+        socket.on('init_world', (serverData) => {
+            circles = serverData;
+            console.log(`Monde chargé : ${circles.length} pixels.`);
+            draw();
+        });
+
+        // Réception d'un nouveau pixel posé par quelqu'un
+        socket.on('new_circle', (circle) => {
+            circles.push(circle);
+            draw();
+        });
+
+        // --- 4. Système de Ping (Latence) ---
+        const pingDisplay = document.getElementById('pingDisplay');
+        const pingDot = document.getElementById('pingDot');
+
+        setInterval(() => {
+            const start = Date.now();
+            socket.emit('ping');
+
+            // On écoute la réponse "pong" une seule fois pour cette demande
+            socket.once('pong', () => {
+                const latency = Date.now() - start;
+                pingDisplay.innerText = latency;
+
+                // Changer la couleur du point selon la qualité
+                if (latency < 100) pingDot.style.backgroundColor = '#00ff00'; // Vert (Bon)
+                else if (latency < 300) pingDot.style.backgroundColor = 'orange'; // Moyen
+                else pingDot.style.backgroundColor = 'red'; // Mauvais
+            });
+        }, 2000); // Test toutes les 2 secondes
+
+        // --- 5. Logique de Dessin (Rendu) ---
+        function draw() {
+            // 1. Effacer l'écran (Fond gris foncé)
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            
+            // 2. Appliquer la caméra
+            ctx.translate(-camera.x, -camera.y);
+
+            // 3. Dessiner la zone jouable (Carré blanc géant)
+            // Fond du monde jouable (un peu plus clair que le fond hors map)
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+            
+            // Bordure
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 5;
+            ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+
+            // 4. Dessiner tous les cercles
+            // Optimisation simple : on ne dessine que si c'est visible à l'écran ?
+            // Pour l'instant on dessine tout pour être sûr.
+            for (let c of circles) {
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, 10, 0, Math.PI * 2); // Rayon de 10px
+                ctx.fillStyle = c.color;
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        // --- 6. Gestion des Souris / Contrôles ---
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 2) { 
+                // Clic Droit : On commence à bouger la caméra
+                isDragging = true;
+                lastMouse = { x: e.clientX, y: e.clientY };
+                canvas.style.cursor = 'grabbing';
+            } else if (e.button === 0) { 
+                // Clic Gauche : On pose un pixel
+                
+                // On calcule la position réelle dans le monde (Souris + Caméra)
+                const worldX = e.clientX + camera.x;
+                const worldY = e.clientY + camera.y;
+
+                // Vérification si on est DANS le monde
+                if (worldX >= 0 && worldX <= WORLD_SIZE && worldY >= 0 && worldY <= WORLD_SIZE) {
+                    const color = document.getElementById('colorPicker').value;
+                    
+                    // On envoie au serveur
+                    socket.emit('place_circle', { 
+                        x: Math.round(worldX), 
+                        y: Math.round(worldY), 
+                        color: color 
+                    });
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            // Si on est en train de bouger la caméra
+            if (isDragging) {
+                const dx = e.clientX - lastMouse.x;
+                const dy = e.clientY - lastMouse.y;
+                
+                camera.x -= dx;
+                camera.y -= dy;
+                
+                lastMouse = { x: e.clientX, y: e.clientY };
+                draw();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'crosshair';
+        });
+
+        // Bloquer le menu contextuel du clic droit
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Zoom avec la molette (Bonus simple : juste pour le fun, optionnel)
+        // Note: Le zoom est complexe à bien calibrer, pour l'instant on reste simple.
+        
+    </script>
+>>>>>>> 046f9bf (Initialisation du dépôt local et préparation a la synchronisation)
 </body>
 </html>
