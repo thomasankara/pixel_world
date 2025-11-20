@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel World 10k</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; color: white; font-family: sans-serif; }
+        canvas { display: block; }
+        #ui {
+            position: absolute; top: 10px; left: 10px; 
+            background: rgba(0, 0, 0, 0.8); padding: 15px; border-radius: 8px;
+            border: 1px solid #444; user-select: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h3>Monde Multijoueur</h3>
+    <small>Clic Gauche: Dessiner<br>Clic Droit: Bouger la caméra</small><br><br>
+    <input type="color" id="colorPicker" value="#00ff00">
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+<script>
+    const socket = io();
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const WORLD_SIZE = 10000; 
+    let circles = []; 
+    
+    // Caméra
+    let camera = { x: 0, y: 0 };
+    let isDragging = false;
+    let lastMouse = { x: 0, y: 0 };
+
+    // Redimensionnement
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        draw();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- Réseau ---
+    socket.on('init_world', (data) => {
+        circles = data;
+        draw();
+    });
+
+    socket.on('new_circle', (data) => {
+        circles.push(data);
+        draw();
+    });
+
+    // --- Dessin ---
+    function draw() {
+        // Fond gris foncé
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        // Décalage caméra
+        ctx.translate(-camera.x, -camera.y);
+
+        // Bordures du monde
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+
+        // Optimisation simple : ne pas dessiner si hors de l'écran
+        // Pour l'instant on dessine tout pour simplifier le code
+        for (let c of circles) {
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, 20, 0, Math.PI * 2);
+            ctx.fillStyle = c.color;
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    // --- Contrôles ---
+    canvas.addEventListener('mousedown', (e) => {
+        if (e.button === 2) { // Clic Droit -> Drag
+            isDragging = true;
+            lastMouse = { x: e.clientX, y: e.clientY };
+        } else if (e.button === 0) { // Clic Gauche -> Dessiner
+            const worldX = e.clientX + camera.x;
+            const worldY = e.clientY + camera.y;
+            
+            if (worldX >= 0 && worldX <= WORLD_SIZE && worldY >= 0 && worldY <= WORLD_SIZE) {
+                const color = document.getElementById('colorPicker').value;
+                // Envoi au serveur
+                socket.emit('place_circle', { x: worldX, y: worldY, color: color });
+            }
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            camera.x -= (e.clientX - lastMouse.x);
+            camera.y -= (e.clientY - lastMouse.y);
+            lastMouse = { x: e.clientX, y: e.clientY };
+            draw();
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('contextmenu', e => e.preventDefault()); // Bloque le menu clic droit
+
+</script>
+</body>
+</html>
